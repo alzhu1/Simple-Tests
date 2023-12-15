@@ -15,7 +15,11 @@ public enum DialogueKey {
     L1_WRONG_DOOR_LESS_15,
     L1_WRONG_DOOR_LESS_20,
     L1_WRONG_DOOR_20_PLUS,
-    L1_CORRECT_DOOR
+    L2_START,
+    L2_MOVE_1_SEC,
+    L2_MOVE_5_SEC,
+    L2_MOVE_10_SEC,
+    WIN
 }
 
 [System.Serializable]
@@ -32,6 +36,8 @@ public class Narrator : MonoBehaviour {
     private Text narratorText;
     private Dialogue currDialogue;
 
+    private bool beatLevel1;
+
     void Awake() {
         narratorText = GetComponent<Text>();
     }
@@ -39,48 +45,67 @@ public class Narrator : MonoBehaviour {
     void Start() {
         EventBus.instance.OnGameStart += ReceiveGameStartEvent;
         EventBus.instance.OnDoorEnter += ReceiveDoorEnterEvent;
+        EventBus.instance.OnMove += ReceiveMoveEvent;
     }
 
     void OnDestroy() {
         EventBus.instance.OnGameStart -= ReceiveGameStartEvent;
         EventBus.instance.OnDoorEnter -= ReceiveDoorEnterEvent;
+        EventBus.instance.OnMove -= ReceiveMoveEvent;
     }
 
-    // void Update() {
-    //     narratorText.text = currDialogue.value;
-    // }
-
-    void SetCurrDiagloue(DialogueKey key, params object[] metadata) {
+    void SetCurrDialogue(DialogueKey key, params object[] metadata) {
         currDialogue = dialogues.First(d => d.key == key);
 
-
-        // narratorText.text = currDialogue.value;
         narratorText.text = string.Format(currDialogue.value, metadata);
     }
 
-    void ReceiveGameStartEvent() { SetCurrDiagloue(DialogueKey.START); }
+    void ReceiveGameStartEvent() { SetCurrDialogue(DialogueKey.START); }
     void ReceiveDoorEnterEvent(Counter c, bool isLevel1CorrectDoor) {
         c.IncrementDoorEnterCount();
         int doorEnterCount = c.DoorEnterCount;
 
         // Display correct door text
         if (isLevel1CorrectDoor) {
-            SetCurrDiagloue(DialogueKey.L1_CORRECT_DOOR);
+            SetCurrDialogue(DialogueKey.L2_START);
+            c.ResetTimers();
+            beatLevel1 = true;
             return;
         }
 
         // Incorrect door has many options
         switch (doorEnterCount) {
-            case 1: { SetCurrDiagloue(DialogueKey.L1_WRONG_DOOR_1); return; }
-            case 2: { SetCurrDiagloue(DialogueKey.L1_WRONG_DOOR_2); return; }
-            case 3: { SetCurrDiagloue(DialogueKey.L1_WRONG_DOOR_3); return; }
-            case 4: { SetCurrDiagloue(DialogueKey.L1_WRONG_DOOR_4); return; }
-            case 5: { SetCurrDiagloue(DialogueKey.L1_WRONG_DOOR_5); return; }
+            case 1: { SetCurrDialogue(DialogueKey.L1_WRONG_DOOR_1); return; }
+            case 2: { SetCurrDialogue(DialogueKey.L1_WRONG_DOOR_2); return; }
+            case 3: { SetCurrDialogue(DialogueKey.L1_WRONG_DOOR_3); return; }
+            case 4: { SetCurrDialogue(DialogueKey.L1_WRONG_DOOR_4); return; }
+            case 5: { SetCurrDialogue(DialogueKey.L1_WRONG_DOOR_5); return; }
         }
 
-        if (doorEnterCount < 10) { SetCurrDiagloue(DialogueKey.L1_WRONG_DOOR_LESS_10, doorEnterCount); }
-        else if (doorEnterCount < 15) { SetCurrDiagloue(DialogueKey.L1_WRONG_DOOR_LESS_15, doorEnterCount); }
-        else if (doorEnterCount < 20) { SetCurrDiagloue(DialogueKey.L1_WRONG_DOOR_LESS_20, doorEnterCount); }
-        else { SetCurrDiagloue(DialogueKey.L1_WRONG_DOOR_20_PLUS, doorEnterCount); }
+        if (doorEnterCount < 10) { SetCurrDialogue(DialogueKey.L1_WRONG_DOOR_LESS_10, doorEnterCount); }
+        else if (doorEnterCount < 15) { SetCurrDialogue(DialogueKey.L1_WRONG_DOOR_LESS_15, doorEnterCount); }
+        else if (doorEnterCount < 20) { SetCurrDialogue(DialogueKey.L1_WRONG_DOOR_LESS_20, doorEnterCount); }
+        else { SetCurrDialogue(DialogueKey.L1_WRONG_DOOR_20_PLUS, doorEnterCount); }
+    }
+
+    void ReceiveMoveEvent(Counter c, bool moving) {
+        if (beatLevel1) {
+            float moveTime = c.TimeMoved;
+            float waitTime = c.TimeWaited;
+
+            if (waitTime >= 20) {
+                SetCurrDialogue(DialogueKey.WIN);
+                beatLevel1 = false;
+                return;
+            }
+
+            if (moveTime < 5) {
+                SetCurrDialogue(DialogueKey.L2_MOVE_1_SEC);
+            } else if (moveTime < 10) {
+                SetCurrDialogue(DialogueKey.L2_MOVE_5_SEC);
+            } else {
+                SetCurrDialogue(DialogueKey.L2_MOVE_10_SEC, moveTime, waitTime);
+            }
+        }
     }
 }

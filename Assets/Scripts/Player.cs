@@ -6,10 +6,14 @@ public class Player : MonoBehaviour {
     [SerializeField] private float maxSpeed;
     [SerializeField] private float jumpVelocity;
 
+    [SerializeField] private Transform groundCheck;
+    [SerializeField] private LayerMask groundLayers;
+
     private Rigidbody2D rb;
 
     private float horizontal;
     private bool shouldJump;
+    private bool grounded;
 
     void Awake() {
         rb = GetComponent<Rigidbody2D>();
@@ -18,7 +22,7 @@ public class Player : MonoBehaviour {
     void Update() {
         horizontal = Input.GetAxisRaw("Horizontal");
 
-        if (!shouldJump && Input.GetButtonDown("Jump")) {
+        if (grounded && !shouldJump && Input.GetButtonDown("Jump")) {
             shouldJump = true;
         }
     }
@@ -27,11 +31,16 @@ public class Player : MonoBehaviour {
         Vector2 velocity = rb.velocity;
         velocity.x = horizontal * maxSpeed * Time.fixedDeltaTime;
 
+        grounded = Physics2D.OverlapCircle(groundCheck.position, 0.05f, groundLayers);
+
         if (shouldJump) {
             velocity.y = jumpVelocity;
             shouldJump = false;
         }
 
         rb.velocity = velocity;
+
+        // I hate this
+        EventBus.instance.TriggerOnMove(rb.velocity.magnitude >= 0.1f);
     }
 }
